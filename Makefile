@@ -6,7 +6,7 @@ ISPC := ispc
 
 -include Makefile.local
 
-all: matrix waveform
+all: matrix waveform osc
 
 #matrix: CC=$(CXX)
 #matrix: matrix_ispc.o matrix.o
@@ -17,6 +17,8 @@ all: matrix waveform
 	R --vanilla < $<
 
 waveform: LDLIBS=-lsndfile
+
+osc: LDLIBS=-lsndfile
 
 #%_ispc.o: %.ispc
 #	$(ISPC) -o $@ -h $(basename $@).h $<

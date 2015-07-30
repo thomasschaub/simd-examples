@@ -1,9 +1,11 @@
 Makefile.local
 
 matrix
+osc
 waveform
 
 *.txt
+*.wav
 *.png
 *.csv
 *.svg
