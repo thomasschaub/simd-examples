@@ -10,5 +10,5 @@ ggsave(
        expand_limits(y=0) +
        scale_x_discrete(
                         name="Implementation",
-                        limits=c("Scalar", "Naive", "SPMD AOS", "SPMD SOA", "Boost.SIMD")
+                        limits=c("Scalar", "Naive", "SPMD AOS", "SPMD SOA", "Boost.SIMD", "memcpy")
                         ))

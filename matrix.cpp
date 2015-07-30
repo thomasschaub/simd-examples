@@ -165,6 +165,7 @@ void dump_soa(const char* path, float* ys, unsigned long n)
 
 int main()
 {
+  std::cout << "type,t" << std::endl;
   for (int i = 0; i < 9; ++i)
   {
     auto matrix = aligned_new<float>(16);
@@ -248,6 +249,20 @@ int main()
       }
       dump_soa("matrix_boost4.txt", outBoost4, n);
       delete[] outBoost4;
+    }
+
+    {
+      // As a baseline, hard to be fater than memcpy.
+      auto outMemcpy = aligned_new<float>(4*n);
+      {
+        Benchmark b("memcpy");
+        std::copy(
+          inSoa,
+          inSoa + 4*n,
+          outMemcpy);
+      }
+      dump_soa("matrix_memcpy.txt", outMemcpy, n);
+      delete[] outMemcpy;
     }
 
 #ifdef AVX
