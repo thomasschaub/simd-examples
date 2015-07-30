@@ -1,5 +1,8 @@
 Makefile.local
 
+matrix
+waveform
+
 *.txt
 *.png
 *.csv
