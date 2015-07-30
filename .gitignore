@@ -1,0 +1,8 @@
+Makefile.local
+
+*.txt
+*.png
+*.csv
+*.svg
+
+Rplots.pdf
