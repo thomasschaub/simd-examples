@@ -114,8 +114,9 @@ void Osc_sse2::stepV()
 
 int main()
 {
-  auto n = 1u << 26;
   // Benchmark
+  std::cout << "type,t" << std::endl;
+  auto n = 1u << 26;
   for (auto i = 0; i < 9; ++i)
   {
     {
