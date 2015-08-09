@@ -218,9 +218,9 @@ int main(int argc, char* argv[])
   unsigned n = info.frames * info.channels;
   unsigned w = 400; // Must be a multiple of 4.
   unsigned h = 100;
-  float* xs = new float[n];
+  auto xs = aligned_new<float>(n);
   {
-    auto frames = sf_readf_float(sf, xs, info.frames);
+    auto frames = sf_readf_float(sf, xs.get(), info.frames);
     assert(frames == info.frames);
   }
 
@@ -232,7 +232,7 @@ int main(int argc, char* argv[])
       auto ys_scalar = aligned_new<unsigned char>(w*h);
       {
         Benchmark b("Scalar");
-        waveform_scalar(xs, n, ys_scalar.get(), w, h);
+        waveform_scalar(xs.get(), n, ys_scalar.get(), w, h);
       }
       stbi_write_png("waveform_scalar.png", w, h, 1, ys_scalar.get(), w);
     }
@@ -241,7 +241,7 @@ int main(int argc, char* argv[])
       auto ys_sse2 = aligned_new<unsigned char>(w*h);
       {
         Benchmark b("Intrinsics");
-        waveform_sse2(xs, n, ys_sse2.get(), w, h);
+        waveform_sse2(xs.get(), n, ys_sse2.get(), w, h);
       }
       stbi_write_png("waveform_sse2.png", w, h, 1, ys_sse2.get(), w);
     }
@@ -250,7 +250,7 @@ int main(int argc, char* argv[])
       auto ys_boost = aligned_new<unsigned char>(w*h);
       {
         Benchmark b("Boost.SIMD");
-        waveform_boost<4>(xs, n, ys_boost.get(), w, h);
+        waveform_boost<4>(xs.get(), n, ys_boost.get(), w, h);
       }
       stbi_write_png("waveform_boost.png", w, h, 1, ys_boost.get(), w);
     }
