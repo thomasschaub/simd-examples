@@ -5,13 +5,16 @@
 #include <iostream>
 #include <memory>
 
+#include <xmmintrin.h>
+
+// Measures time between ctor and dtor, useful to benchmark the execution time
+// of a scope.
 struct Benchmark
 {
   Benchmark(const char* label)
     : label(label)
   {
   }
-
 
   ~Benchmark()
   {
@@ -35,6 +38,8 @@ std::unique_ptr<T[]> aligned_new(unsigned long n)
   return std::unique_ptr<T[]>(p);
 }
 
+// Extracts the i-th component of a vector. In SSE 4.1 you could use
+// _mm_extract_ps instead.
 template <int i>
 float extract(__m128 v)
 {

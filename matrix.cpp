@@ -1,17 +1,18 @@
 #include <fstream>
 #include <iostream>
-#include <iterator>
-#include <memory>
-#include <numeric>
-#include <type_traits>
-#include <vector>
 
 #include <xmmintrin.h>
 
+#include <boost/simd/include/functions/load.hpp>
+#include <boost/simd/include/functions/multiplies.hpp>
+#include <boost/simd/include/functions/plus.hpp>
+#include <boost/simd/include/functions/aligned_store.hpp>
+#include <boost/simd/sdk/simd/pack.hpp>
+
 #include "util.h"
 
-// x y z w x y z w ...
-void mul_scalar(float* matrix, float* xs, float* ys, unsigned n)
+// Assumes AOS memory layout
+void mul_scalar(float* matrix, float* xs, float* ys, unsigned long n)
 {
   for (decltype(n) k = 0; k < n; ++k)
   {
@@ -29,8 +30,8 @@ void mul_scalar(float* matrix, float* xs, float* ys, unsigned n)
   }
 }
 
-// x y z w x y z w ...
-void mul_sse2_bad(float* matrix, float* xs, float* ys, unsigned n)
+// Assumes AOS memory layout
+void mul_sse2_bad(float* matrix, float* xs, float* ys, unsigned long n)
 {
   for (decltype(n) k = 0; k < n; ++k)
   {
@@ -50,11 +51,8 @@ void mul_sse2_bad(float* matrix, float* xs, float* ys, unsigned n)
   }
 }
 
-// From SSE 4.1
-#define _mm_extract_ps(a, i) (_mm_cvtss_f32(_mm_shuffle_ps(a, a, i)))
-
-// x y z w x y z w ...
-void mul_sse2_notquite(float* matrix, float* xs, float* ys, unsigned n)
+// Assumes AOS memory layout
+void mul_sse2_notquite(float* matrix, float* xs, float* ys, unsigned long n)
 {
   for (decltype(n) k = 0; k < n; k += 4)
   {
@@ -67,16 +65,16 @@ void mul_sse2_notquite(float* matrix, float* xs, float* ys, unsigned n)
         auto tempX = _mm_set_ps(xs[4*(k+0) + j], xs[4*(k+1) + j], xs[4*(k+2) + j], xs[4*(k+3) + j]);
         a = _mm_add_ps(a, _mm_mul_ps(tempM, tempX));
       }
-      ys[4*(k+0) + i] = (float)(_mm_extract_ps(a, 3));
-      ys[4*(k+1) + i] = (float)(_mm_extract_ps(a, 2));
-      ys[4*(k+2) + i] = (float)(_mm_extract_ps(a, 1));
-      ys[4*(k+3) + i] = (float)(_mm_extract_ps(a, 0));
+      ys[4*(k+0) + i] = extract<3>(a);
+      ys[4*(k+1) + i] = extract<2>(a);
+      ys[4*(k+2) + i] = extract<1>(a);
+      ys[4*(k+3) + i] = extract<0>(a);
     }
   }
 }
 
-// x x x x y y y y z z z z w w w w x x x x ...
-void mul_sse2(float* matrix, float* xs, float* ys, unsigned n)
+// Assumes Hybrid SOA memory layout
+void mul_sse2(float* matrix, float* xs, float* ys, unsigned long n)
 {
   for (decltype(n) k = 0; k < n; k += 4)
   {
@@ -94,14 +92,9 @@ void mul_sse2(float* matrix, float* xs, float* ys, unsigned n)
   }
 }
 
-#include <boost/simd/include/functions/load.hpp>
-#include <boost/simd/include/functions/multiplies.hpp>
-#include <boost/simd/include/functions/plus.hpp>
-#include <boost/simd/include/functions/aligned_store.hpp>
-#include <boost/simd/sdk/simd/pack.hpp>
-
+// Assumes Hybrid SOA memory layout
 template <unsigned vecWidth>
-void mul_boost(float* matrix, float* xs, float* ys, unsigned n)
+void mul_boost(float* matrix, float* xs, float* ys, unsigned long n)
 {
   typedef boost::simd::pack<float, vecWidth> pack;
 
@@ -112,8 +105,8 @@ void mul_boost(float* matrix, float* xs, float* ys, unsigned n)
       auto a = pack(0);
       for (unsigned j = 0; j < 4; ++j)
       {
-        auto tempM = pack(matrix[4*i + j]);
-        auto tempX = boost::simd::aligned_load<pack>(xs + 4*k + 4*j);
+        pack tempM = pack(matrix[4*i + j]);
+        pack tempX = boost::simd::aligned_load<pack>(xs + 4*k + 4*j);
         a = a + tempM * tempX;
       }
       boost::simd::aligned_store<pack>(a, ys + 4*k + 4*i);
@@ -121,12 +114,12 @@ void mul_boost(float* matrix, float* xs, float* ys, unsigned n)
   }
 }
 
-#ifdef ISPC
-#include "matrix_ispc.h"
-#endif
-
 ////////////////////////////////////////////////////////////////////////////////
 
+// Converts indices between AOS and Hybrid SOA. Goes both ways.
+// Example:
+// * in:   0  1  2  3  4  5  6  7  8  9 10 11 12 13 14 15
+// * out:  0  4  8 12  1  5  9 13  2  6 10 14  3  7 11 15
 unsigned long switchLayoutIndex(unsigned long aosIndex)
 {
   return (aosIndex & ~0xf) | ((aosIndex & 0xc) / 4) | ((aosIndex & 0x3) * 4);
@@ -164,32 +157,35 @@ void dump_soa(const char* path, float* ys, unsigned long n)
 int main()
 {
   // Number of vectors
-  static const unsigned long n = 1 << 24;
+  const unsigned long n = 1 << 24;
 
+  // Prepare input data
+
+  auto matrix = aligned_new<float>(16);
+  for (unsigned int i = 0; i < 16; ++i)
+  {
+    matrix[i] = i;
+  }
+
+  auto in = aligned_new<float>(4*n);
+  for (std::remove_const<decltype(n)>::type i = 1; i < n; ++i)
+  {
+    in[4*i + 0] = i;
+    in[4*i + 1] = i*i;
+    in[4*i + 2] = i*i*i;
+    in[4*i + 3] = i*i*i*i;
+  }
+
+  auto inSoa = aligned_new<float>(4*n);
+  for (unsigned long i = 0; i < 4*n; ++i)
+  {
+    inSoa[i] = in[switchLayoutIndex(i)];
+  }
+
+  // Benchmark for a couple of iterations
   std::cout << "type,t" << std::endl;
   for (int i = 0; i < 9; ++i)
   {
-    auto matrix = aligned_new<float>(16);
-    for (unsigned int i = 0; i < 16; ++i)
-    {
-      matrix[i] = i;
-    }
-
-    auto in = aligned_new<float>(4*n);
-    for (std::remove_const<decltype(n)>::type i = 1; i < n; ++i)
-    {
-      in[4*i + 0] = i;
-      in[4*i + 1] = i*i;
-      in[4*i + 2] = i*i*i;
-      in[4*i + 3] = i*i*i*i;
-    }
-
-    auto inSoa = aligned_new<float>(4*n);
-    for (unsigned long i = 0; i < 4*n; ++i)
-    {
-      inSoa[i] = in[switchLayoutIndex(i)];
-    }
-
     {
       auto outScalar = aligned_new<float>(4*n);
       {
