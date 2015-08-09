@@ -1,6 +1,9 @@
-#include <sstream>
+#include <iostream>
 
 #include <xmmintrin.h>
+
+#include <boost/simd/arithmetic/arithmetic.hpp>
+#include <boost/simd/sdk/simd/pack.hpp>
 
 #include <sndfile.h>
 
@@ -14,10 +17,21 @@
 
 void waveform_scalar(float* xs, unsigned n, unsigned char* ys, unsigned w, unsigned h)
 {
+  // A sample here is a sample in the sense of super sampling for anti aliasing
+  // the output image. "Audio samples" are called frames.
   const unsigned samples = 16;
-  unsigned k = n / w;
+
+  // The input is processed in chunks, where one chunk corresponds to one pixel
+  // in the output image. We potentially ignore some frames if the division has
+  // a remainder, but no one will notice.
+  unsigned k = n / w; // Number of frames per chunk.
+
+  // Compute the waveform's output columns one by one.
   for (unsigned i = 0; i < w; ++i)
   {
+    // For each output column, determine the min and max value of the
+    // corresponding chunk of audio frames. Again, division might ignore frames,
+    // no one cares.
     float mins[samples];
     float maxs[samples];
     for (unsigned s = 0; s < samples; ++s)
@@ -34,6 +48,8 @@ void waveform_scalar(float* xs, unsigned n, unsigned char* ys, unsigned w, unsig
       maxs[s] = max;
     }
 
+    // Draw the output column by iterating its rows (levels). The ouput color is
+    // determined by the fraction of samples surpassing the current level.
     unsigned hMin[samples];
     unsigned hMax[samples];
     for (unsigned j = 0; j < samples; ++j)
@@ -109,11 +125,8 @@ void waveform_sse2(float* xs, unsigned n, unsigned char* ys, unsigned w, unsigne
   }
 }
 
-#include <boost/simd/arithmetic/arithmetic.hpp>
-#include <boost/simd/sdk/simd/pack.hpp>
-
-// x = pack_from_f<4>()(f) is equivalent to (but faster than)
-// for (unsigned l = 0; l < 4; ++l) x[l] = f(l);
+// `x = pack_from_f<4>()(f)` is equivalent to (but faster than)
+// `for (unsigned l = 0; l < 4; ++l) x[l] = f(l);`
 template <unsigned vecWidth>
 struct pack_from_f
 {
@@ -127,12 +140,7 @@ struct pack_from_f<4>
   template <typename Fn>
   boost::simd::pack<float, 4> operator()(const Fn& fn)
   {
-    return boost::simd::pack<float, 4>(
-      fn(0),
-      fn(1),
-      fn(2),
-      fn(3)
-    );
+    return boost::simd::pack<float, 4>(fn(0), fn(1), fn(2), fn(3));
   }
 };
 
@@ -150,11 +158,11 @@ void waveform_boost(float* xs, unsigned n, unsigned char* ys, unsigned w, unsign
     packF maxs[samples];
     for (unsigned s = 0; s < samples; ++s)
     {
-      auto min = packF(std::numeric_limits<float>::max());
-      auto max = packF(std::numeric_limits<float>::min());
+      packF min = packF(std::numeric_limits<float>::max());
+      packF max = packF(std::numeric_limits<float>::min());
       for (unsigned j = s * k / samples, end = (s+1) * k / samples; j < end; ++j)
       {
-        auto x = pack_from_f<4>()([=] (unsigned l) { return xs[k*(i+l) + j]; });
+        packF x = pack_from_f<4>()([=] (unsigned l) { return xs[k*(i+l) + j]; });
         min = boost::simd::min(min, x);
         max = boost::simd::max(max, x);
       }
@@ -171,10 +179,10 @@ void waveform_boost(float* xs, unsigned n, unsigned char* ys, unsigned w, unsign
     }
     for (unsigned j = 0; j < h; ++j)
     {
-      auto y = packI(255);
+      packI y = packI(255);
       for (unsigned s = 0; s < samples; ++s)
       {
-        auto jV = packI(j);
+        packI jV = packI(j);
         y = y - boost::simd::if_else_zero(
           jV < hMin[s] || hMax[s] < jV,
           packI(255 / samples));
@@ -192,12 +200,15 @@ void waveform_boost(float* xs, unsigned n, unsigned char* ys, unsigned w, unsign
 
 int main(int argc, char* argv[])
 {
-  assert (argc == 2);
-
+  // Parse arguments
+  if (argc != 2)
+  {
+    std::cerr << "Usage: " << argv[0] << " <in.wav>" << std::endl;
+    return 1;
+  }
   auto path = argv[1];
 
   SF_INFO info;
-  //auto sf = sf_open("Piano.ff.Gb4.aiff", SFM_READ, &info);
   auto sf = sf_open(path, SFM_READ, &info);
   if (sf == nullptr)
   {
@@ -205,7 +216,7 @@ int main(int argc, char* argv[])
   }
 
   unsigned n = info.frames * info.channels;
-  unsigned w = 400;
+  unsigned w = 400; // Must be a multiple of 4.
   unsigned h = 100;
   float* xs = new float[n];
   {
@@ -223,7 +234,6 @@ int main(int argc, char* argv[])
         Benchmark b("Scalar");
         waveform_scalar(xs, n, ys_scalar.get(), w, h);
       }
-      std::stringstream ss;
       stbi_write_png("waveform_scalar.png", w, h, 1, ys_scalar.get(), w);
     }
 
@@ -233,7 +243,6 @@ int main(int argc, char* argv[])
         Benchmark b("Intrinsics");
         waveform_sse2(xs, n, ys_sse2.get(), w, h);
       }
-      std::stringstream ss;
       stbi_write_png("waveform_sse2.png", w, h, 1, ys_sse2.get(), w);
     }
 
@@ -243,7 +252,6 @@ int main(int argc, char* argv[])
         Benchmark b("Boost.SIMD");
         waveform_boost<4>(xs, n, ys_boost.get(), w, h);
       }
-      std::stringstream ss;
       stbi_write_png("waveform_boost.png", w, h, 1, ys_boost.get(), w);
     }
   }
