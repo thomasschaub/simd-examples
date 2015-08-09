@@ -6,10 +6,20 @@
 
 #include <xmmintrin.h>
 
+#include <boost/simd/include/functions/load.hpp>
+#include <boost/simd/include/functions/multiplies.hpp>
+#include <boost/simd/include/functions/plus.hpp>
+#include <boost/simd/include/functions/sum.hpp>
+#include <boost/simd/include/functions/rsqrt.hpp>
+#include <boost/simd/include/functions/fast_rsqrt.hpp>
+#include <boost/simd/include/functions/aligned_store.hpp>
+#include <boost/simd/sdk/simd/pack.hpp>
+
 #include <sndfile.h>
 
 #include "util.h"
 
+// From https://en.wikipedia.org/wiki/Fast_inverse_square_root
 float Q_rsqrt( float number )
 {
   long i;
@@ -19,7 +29,7 @@ float Q_rsqrt( float number )
   x2 = number * 0.5F;
   y  = number;
   i  = * ( long * ) &y;                       // evil floating point bit level hacking
-  i  = 0x5f3759df - ( i >> 1 );               // what the fuck? 
+  i  = 0x5f3759df - ( i >> 1 );               // what the fuck?
   y  = * ( float * ) &i;
   y  = y * ( threehalfs - ( x2 * y * y ) );   // 1st iteration
   //  y  = y * ( threehalfs - ( x2 * y * y ) );   // 2nd iteration, this can be removed
@@ -27,10 +37,13 @@ float Q_rsqrt( float number )
   return y;
 }
 
+////////////////////////////////////////////////////////////////////////////////
 
 class Osc_scalar
 {
 public:
+  // f is not really a frequency, but different values for f can produce
+  // different tones.
   void setFreq(float f);
 
   float value();
@@ -58,7 +71,7 @@ void Osc_scalar::step()
   float i = real*dImag + imag*dReal;
 
   auto l = r*r + i*i;
-  auto f = 1/sqrt(l);
+  auto f = 1/sqrt(l); // sqrt from libc, slow
 
   real = f*r;
   imag = f*i;
@@ -94,7 +107,7 @@ void Osc_scalar_q::step()
   float i = real*dImag + imag*dReal;
 
   auto l = r*r + i*i;
-  auto f = Q_rsqrt(l);
+  auto f = Q_rsqrt(l); // Q3's inv sqrt, fast
 
   real = f*r;
   imag = f*i;
@@ -134,20 +147,11 @@ void Osc_sse2::step()
   auto i = _mm_add_ps(_mm_mul_ps(r0, di0), _mm_mul_ps(i0, dr0));
 
   auto l = _mm_mul_ps(r, r) + _mm_mul_ps(i, i);
-  auto f = _mm_rsqrt_ps(l);
+  auto f = _mm_rsqrt_ps(l); // Intrinsic, fast
 
   _mm_store_ps(real, _mm_mul_ps(f, r));
   _mm_store_ps(imag, _mm_mul_ps(f, i));
 }
-
-#include <boost/simd/include/functions/load.hpp>
-#include <boost/simd/include/functions/multiplies.hpp>
-#include <boost/simd/include/functions/plus.hpp>
-#include <boost/simd/include/functions/sum.hpp>
-#include <boost/simd/include/functions/rsqrt.hpp>
-#include <boost/simd/include/functions/fast_rsqrt.hpp>
-#include <boost/simd/include/functions/aligned_store.hpp>
-#include <boost/simd/sdk/simd/pack.hpp>
 
 class Osc_boost
 {
@@ -185,7 +189,7 @@ void Osc_boost::step()
   pack i = r0*di0 + i0*dr0;
 
   pack l = r*r + i*i;
-  //auto f = boost::simd::fast_rsqrt(l); // Who knows what that is...
+  //pack f = boost::simd::fast_rsqrt(l); // Who knows what that is...
   pack f = boost::simd::rsqrt(l);
 
   boost::simd::aligned_store<pack>(f*r, (float*)real);
