@@ -10,12 +10,10 @@
 
 #include "util.h"
 
-static const unsigned long n = 1 << 24;
-
 // x y z w x y z w ...
-void mul_scalar(float* matrix, float* xs, float* ys)
+void mul_scalar(float* matrix, float* xs, float* ys, unsigned n)
 {
-  for (std::remove_const<decltype(n)>::type k = 0; k < n; ++k)
+  for (decltype(n) k = 0; k < n; ++k)
   {
     float* x = xs + 4*k;
     float* y = ys + 4*k;
@@ -32,9 +30,9 @@ void mul_scalar(float* matrix, float* xs, float* ys)
 }
 
 // x y z w x y z w ...
-void mul_sse2_bad(float* matrix, float* xs, float* ys)
+void mul_sse2_bad(float* matrix, float* xs, float* ys, unsigned n)
 {
-  for (std::remove_const<decltype(n)>::type k = 0; k < n; ++k)
+  for (decltype(n) k = 0; k < n; ++k)
   {
     auto x = _mm_load_ps(xs + 4*k);
     auto y = ys + 4*k;
@@ -56,9 +54,9 @@ void mul_sse2_bad(float* matrix, float* xs, float* ys)
 #define _mm_extract_ps(a, i) (_mm_cvtss_f32(_mm_shuffle_ps(a, a, i)))
 
 // x y z w x y z w ...
-void mul_sse2_notquite(float* matrix, float* xs, float* ys)
+void mul_sse2_notquite(float* matrix, float* xs, float* ys, unsigned n)
 {
-  for (std::remove_const<decltype(n)>::type k = 0; k < n; k += 4)
+  for (decltype(n) k = 0; k < n; k += 4)
   {
     for (unsigned i = 0; i < 4; ++i)
     {
@@ -78,9 +76,9 @@ void mul_sse2_notquite(float* matrix, float* xs, float* ys)
 }
 
 // x x x x y y y y z z z z w w w w x x x x ...
-void mul_sse2(float* matrix, float* xs, float* ys)
+void mul_sse2(float* matrix, float* xs, float* ys, unsigned n)
 {
-  for (std::remove_const<decltype(n)>::type k = 0; k < n; k += 4)
+  for (decltype(n) k = 0; k < n; k += 4)
   {
     for (unsigned i = 0; i < 4; ++i)
     {
@@ -103,11 +101,11 @@ void mul_sse2(float* matrix, float* xs, float* ys)
 #include <boost/simd/sdk/simd/pack.hpp>
 
 template <unsigned vecWidth>
-void mul_boost(float* matrix, float* xs, float* ys)
+void mul_boost(float* matrix, float* xs, float* ys, unsigned n)
 {
   typedef boost::simd::pack<float, vecWidth> pack;
 
-  for (std::remove_const<decltype(n)>::type k = 0; k < n; k += vecWidth)
+  for (decltype(n) k = 0; k < n; k += vecWidth)
   {
     for (unsigned i = 0; i < 4; ++i)
     {
@@ -165,6 +163,9 @@ void dump_soa(const char* path, float* ys, unsigned long n)
 
 int main()
 {
+  // Number of vectors
+  static const unsigned long n = 1 << 24;
+
   std::cout << "type,t" << std::endl;
   for (int i = 0; i < 9; ++i)
   {
@@ -193,7 +194,7 @@ int main()
       auto outScalar = aligned_new<float>(4*n);
       {
         Benchmark b("Scalar");
-        mul_scalar(matrix, in, outScalar);
+        mul_scalar(matrix, in, outScalar, n);
       }
       dump_aos("matrix_scalar.txt", outScalar, n);
       delete[] outScalar;
@@ -203,7 +204,7 @@ int main()
       auto outSse2Bad = aligned_new<float>(4*n);
       {
         Benchmark b("Naive");
-        mul_sse2_bad(matrix, in, outSse2Bad);
+        mul_sse2_bad(matrix, in, outSse2Bad, n);
       }
       dump_aos("matrix_sse2Bad.txt", outSse2Bad, n);
       delete[] outSse2Bad;
@@ -213,7 +214,7 @@ int main()
       auto outSse2Notquite = aligned_new<float>(4*n);
       {
         Benchmark b("SPMD AOS");
-        mul_sse2_notquite(matrix, in, outSse2Notquite);
+        mul_sse2_notquite(matrix, in, outSse2Notquite, n);
       }
       dump_aos("matrix_sse2NotQuite.txt", outSse2Notquite, n);
       delete[] outSse2Notquite;
@@ -223,29 +224,17 @@ int main()
       auto outSse2 = aligned_new<float>(4*n);
       {
         Benchmark b("SPMD SOA");
-        mul_sse2(matrix, inSoa, outSse2);
+        mul_sse2(matrix, inSoa, outSse2, n);
       }
       dump_soa("matrix_sse2.txt", outSse2, n);
       delete[] outSse2;
     }
 
-#if 0
-    {
-      auto outBoost2 = aligned_new<float>(4*n);
-      {
-        Benchmark b;
-        mul_boost<2>(matrix, inSoa, outBoost2);
-      }
-      dump_soa("matrix_boost2.txt", outBoost2, n);
-      delete[] outBoost2;
-    }
-#endif
-
     {
       auto outBoost4 = aligned_new<float>(4*n);
       {
         Benchmark b("Boost.SIMD");
-        mul_boost<4>(matrix, inSoa, outBoost4);
+        mul_boost<4>(matrix, inSoa, outBoost4, n);
       }
       dump_soa("matrix_boost4.txt", outBoost4, n);
       delete[] outBoost4;
@@ -264,28 +253,6 @@ int main()
       dump_soa("matrix_memcpy.txt", outMemcpy, n);
       delete[] outMemcpy;
     }
-
-#ifdef AVX
-    {
-      auto outBoost8 = aligned_new<float>(8*n);
-      {
-        Benchmark b;
-        mul_boost<8>(matrix, inSoa, outBoost8);
-      }
-      dump_soa("matrix_boost8.txt", outBoost8, n);
-    }
-#endif
-
-#ifdef ISPC
-    {
-      auto outIspc = aligned_new<float>(4*n);
-      {
-        Benchmark b;
-        ispc::mul_ispc(matrix, inSoa, outIspc, n);
-      }
-      dump_soa("matrix_ispc.txt", outIspc, n);
-    }
-#endif
 
   }
 }
