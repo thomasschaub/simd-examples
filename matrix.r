@@ -1,9 +1,16 @@
 require('ggplot2')
 
 df <- read.csv('matrix.csv')
+
+tScalar <- min(df[df$type == 'Scalar',]$t)
+tSimd <- min(df[df$type == 'SPMD SOA',]$t)
+tScalar / tSimd
+
 p <- ggplot(df, aes(type, t))
 ggsave(
-       'matrix.svg',
+       'matrix.pdf',
+       width = 9,
+       height = 5,
        p +
        geom_boxplot() +
        theme_bw() +

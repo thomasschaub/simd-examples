@@ -31,3 +31,10 @@ T* aligned_new(unsigned long n)
   assert((ui & 0xF) == 0);
   return p;
 }
+
+template <int i>
+float extract(__m128 v)
+{
+  auto t = _mm_shuffle_ps(v, v, i);
+  return _mm_cvtss_f32(t);
+};

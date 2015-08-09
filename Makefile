@@ -13,7 +13,7 @@ all: matrix waveform osc
 
 #matrix.cpp: matrix_ispc.h
 
-%.svg: %.r %.csv
+%.pdf: %.r %.csv
 	R --vanilla < $<
 
 waveform: LDLIBS=-lsndfile

@@ -99,7 +99,7 @@ void mul_sse2(float* matrix, float* xs, float* ys)
 #include <boost/simd/include/functions/load.hpp>
 #include <boost/simd/include/functions/multiplies.hpp>
 #include <boost/simd/include/functions/plus.hpp>
-#include <boost/simd/include/functions/store.hpp>
+#include <boost/simd/include/functions/aligned_store.hpp>
 #include <boost/simd/sdk/simd/pack.hpp>
 
 template <unsigned vecWidth>
@@ -118,7 +118,7 @@ void mul_boost(float* matrix, float* xs, float* ys)
         auto tempX = boost::simd::aligned_load<pack>(xs + 4*k + 4*j);
         a = a + tempM * tempX;
       }
-      boost::simd::store<pack>(a, ys + 4*k + 4*i);
+      boost::simd::aligned_store<pack>(a, ys + 4*k + 4*i);
     }
   }
 }
