@@ -134,6 +134,7 @@ void dump_aos(const char* path, float* ys, unsigned long n)
   std::ofstream out(path);
 #if DUMP_FULL
   std::copy(ys, ys+4*n, std::ostream_iterator<float>(out, " "));
+  out << std::endl;
 #else
   out << std::accumulate(ys, ys+4*n, 0) << std::endl;
 #endif
@@ -147,6 +148,7 @@ void dump_soa(const char* path, float* ys, unsigned long n)
   {
     out << ys[switchLayoutIndex(i)] << " ";
   }
+  out << std::endl;
 #else
   out << std::accumulate(ys, ys+4*n, 0) << std::endl;
 #endif
@@ -156,8 +158,13 @@ void dump_soa(const char* path, float* ys, unsigned long n)
 
 int main()
 {
-  // Number of vectors
-  const unsigned long n = 1 << 24;
+  // Number of vectors. Must be a multiple of 4 since we are too lazy to handle
+  // the other case.
+  //const unsigned long n = 8; // For testing
+  const unsigned long n = 1 << 24; // For benchmarking
+
+  //const unsigned nBenchmarkRuns = 1; // For testing
+  const unsigned nBenchmarkRuns = 9; // For benchmarking
 
   // Prepare input data
 
@@ -184,7 +191,7 @@ int main()
 
   // Benchmark for a couple of iterations
   std::cout << "type,t" << std::endl;
-  for (int i = 0; i < 9; ++i)
+  for (int i = 0; i < nBenchmarkRuns; ++i)
   {
     {
       auto outScalar = aligned_new<float>(4*n);
