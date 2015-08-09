@@ -218,36 +218,33 @@ int main(int argc, char* argv[])
   for (int i = 0; i < 9; ++i)
   {
     {
-      auto ys_scalar = new unsigned char[w*h];
+      auto ys_scalar = aligned_new<unsigned char>(w*h);
       {
         Benchmark b("Scalar");
-        waveform_scalar(xs, n, ys_scalar, w, h);
+        waveform_scalar(xs, n, ys_scalar.get(), w, h);
       }
       std::stringstream ss;
-      stbi_write_png("waveform_scalar.png", w, h, 1, ys_scalar, w);
-      delete[] ys_scalar;
+      stbi_write_png("waveform_scalar.png", w, h, 1, ys_scalar.get(), w);
     }
 
     {
-      auto ys_sse2 = new unsigned char[w*h];
+      auto ys_sse2 = aligned_new<unsigned char>(w*h);
       {
         Benchmark b("Intrinsics");
-        waveform_sse2(xs, n, ys_sse2, w, h);
+        waveform_sse2(xs, n, ys_sse2.get(), w, h);
       }
       std::stringstream ss;
-      stbi_write_png("waveform_sse2.png", w, h, 1, ys_sse2, w);
-      delete[] ys_sse2;
+      stbi_write_png("waveform_sse2.png", w, h, 1, ys_sse2.get(), w);
     }
 
     {
-      auto ys_boost = new unsigned char[w*h];
+      auto ys_boost = aligned_new<unsigned char>(w*h);
       {
         Benchmark b("Boost.SIMD");
-        waveform_boost<4>(xs, n, ys_boost, w, h);
+        waveform_boost<4>(xs, n, ys_boost.get(), w, h);
       }
       std::stringstream ss;
-      stbi_write_png("waveform_boost.png", w, h, 1, ys_boost, w);
-      delete[] ys_boost;
+      stbi_write_png("waveform_boost.png", w, h, 1, ys_boost.get(), w);
     }
   }
 

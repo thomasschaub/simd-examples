@@ -202,7 +202,7 @@ int main()
   for (auto i = 0; i < 9; ++i)
   {
     {
-      auto oscs = new Osc_scalar_q[4];
+      auto oscs = aligned_new<Osc_scalar_q>(4);
       oscs[0].setFreq(0.1);
       oscs[1].setFreq(0.2);
       oscs[2].setFreq(0.3);
@@ -221,11 +221,10 @@ int main()
                 << oscs[1].value() << " "
                 << oscs[2].value() << " "
                 << oscs[3].value() << std::endl;
-      delete[] oscs;
     }
 
     {
-      auto oscs = new Osc_scalar[4];
+      auto oscs = aligned_new<Osc_scalar>(4);
       oscs[0].setFreq(0.1);
       oscs[1].setFreq(0.2);
       oscs[2].setFreq(0.3);
@@ -244,50 +243,47 @@ int main()
                 << oscs[1].value() << " "
                 << oscs[2].value() << " "
                 << oscs[3].value() << std::endl;
-      delete[] oscs;
     }
 
     {
-      auto osc = new Osc_sse2();
-      osc->setFreq(0, 0.1);
-      osc->setFreq(1, 0.2);
-      osc->setFreq(2, 0.3);
-      osc->setFreq(3, 0.4);
+      auto osc = aligned_new<Osc_sse2>(1);
+      osc[0].setFreq(0, 0.1);
+      osc[0].setFreq(1, 0.2);
+      osc[0].setFreq(2, 0.3);
+      osc[0].setFreq(3, 0.4);
       {
         Benchmark b("Intrinsics");
         for (decltype(n) i = 0; i < n; ++i)
         {
-          osc->step();
+          osc[0].step();
         }
       }
-      auto v = osc->value();
+      auto v = osc[0].value();
       std::cerr << extract<0>(v) << " "
                 << extract<1>(v) << " "
                 << extract<2>(v) << " "
                 << extract<3>(v) << std::endl;
-      delete osc;
     }
 
 #if 1
     {
-      auto osc = new Osc_boost();
-      osc->setFreq(0, 0.1);
-      osc->setFreq(1, 0.2);
-      osc->setFreq(2, 0.3);
-      osc->setFreq(3, 0.4);
+      auto osc = aligned_new<Osc_boost>(1);
+      osc[0].setFreq(0, 0.1);
+      osc[0].setFreq(1, 0.2);
+      osc[0].setFreq(2, 0.3);
+      osc[0].setFreq(3, 0.4);
       {
         Benchmark b("Boost");
         for (decltype(n) i = 0; i < n; ++i)
         {
-          osc->step();
+          osc[0].step();
         }
       }
-      auto v = osc->value();
+      auto v = osc[0].value();
       std::cerr << v[0] << " "
                 << v[1] << " "
                 << v[2] << " "
                 << v[3] << std::endl;
-      delete osc;
     }
 #endif
   }

@@ -3,6 +3,7 @@
 #include <cassert>
 #include <chrono>
 #include <iostream>
+#include <memory>
 
 struct Benchmark
 {
@@ -23,13 +24,15 @@ private:
   std::chrono::system_clock::time_point t0 = std::chrono::system_clock::now();
 };
 
+// Does not really align anything, but fails if not aligned to a 16 byte
+// boundary.
 template<typename T>
-T* aligned_new(unsigned long n)
+std::unique_ptr<T[]> aligned_new(unsigned long n)
 {
   auto p = new T[n];
   auto ui = reinterpret_cast<uintptr_t>(p);
   assert((ui & 0xF) == 0);
-  return p;
+  return std::unique_ptr<T[]>(p);
 }
 
 template <int i>

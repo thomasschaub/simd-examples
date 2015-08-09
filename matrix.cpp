@@ -194,50 +194,45 @@ int main()
       auto outScalar = aligned_new<float>(4*n);
       {
         Benchmark b("Scalar");
-        mul_scalar(matrix, in, outScalar, n);
+        mul_scalar(matrix.get(), in.get(), outScalar.get(), n);
       }
-      dump_aos("matrix_scalar.txt", outScalar, n);
-      delete[] outScalar;
+      dump_aos("matrix_scalar.txt", outScalar.get(), n);
     }
 
     {
       auto outSse2Bad = aligned_new<float>(4*n);
       {
         Benchmark b("Naive");
-        mul_sse2_bad(matrix, in, outSse2Bad, n);
+        mul_sse2_bad(matrix.get(), in.get(), outSse2Bad.get(), n);
       }
-      dump_aos("matrix_sse2Bad.txt", outSse2Bad, n);
-      delete[] outSse2Bad;
+      dump_aos("matrix_sse2Bad.txt", outSse2Bad.get(), n);
     }
 
     {
       auto outSse2Notquite = aligned_new<float>(4*n);
       {
         Benchmark b("SPMD AOS");
-        mul_sse2_notquite(matrix, in, outSse2Notquite, n);
+        mul_sse2_notquite(matrix.get(), in.get(), outSse2Notquite.get(), n);
       }
-      dump_aos("matrix_sse2NotQuite.txt", outSse2Notquite, n);
-      delete[] outSse2Notquite;
+      dump_aos("matrix_sse2NotQuite.txt", outSse2Notquite.get(), n);
     }
 
     {
       auto outSse2 = aligned_new<float>(4*n);
       {
         Benchmark b("SPMD SOA");
-        mul_sse2(matrix, inSoa, outSse2, n);
+        mul_sse2(matrix.get(), inSoa.get(), outSse2.get(), n);
       }
-      dump_soa("matrix_sse2.txt", outSse2, n);
-      delete[] outSse2;
+      dump_soa("matrix_sse2.txt", outSse2.get(), n);
     }
 
     {
       auto outBoost4 = aligned_new<float>(4*n);
       {
         Benchmark b("Boost.SIMD");
-        mul_boost<4>(matrix, inSoa, outBoost4, n);
+        mul_boost<4>(matrix.get(), inSoa.get(), outBoost4.get(), n);
       }
-      dump_soa("matrix_boost4.txt", outBoost4, n);
-      delete[] outBoost4;
+      dump_soa("matrix_boost4.txt", outBoost4.get(), n);
     }
 
     {
@@ -246,12 +241,11 @@ int main()
       {
         Benchmark b("memcpy");
         std::copy(
-          inSoa,
-          inSoa + 4*n,
-          outMemcpy);
+          inSoa.get(),
+          inSoa.get() + 4*n,
+          outMemcpy.get());
       }
-      dump_soa("matrix_memcpy.txt", outMemcpy, n);
-      delete[] outMemcpy;
+      dump_soa("matrix_memcpy.txt", outMemcpy.get(), n);
     }
 
   }
