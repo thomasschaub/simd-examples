@@ -6,25 +6,18 @@ ISPC := ispc
 
 -include Makefile.local
 
-all: matrix waveform osc
-
-#matrix: CC=$(CXX)
-#matrix: matrix_ispc.o matrix.o
-
-#matrix.cpp: matrix_ispc.h
+all: convolution convolution_test matrix osc waveform
 
 %.pdf: %.r %.csv
 	R --vanilla < $<
 
-waveform: LDLIBS=-lsndfile
+convolution: LDLIBS=-lsndfile
+
+convolution_test: LDLIBS+=-lgtest_main -lpthread
 
 osc: LDLIBS=-lsndfile
 
-#%_ispc.o: %.ispc
-#	$(ISPC) -o $@ -h $(basename $@).h $<
-
-#%_ispc.h: %.ispc
-#	$(ISPC) -h $(basename $@).h $<
+waveform: LDLIBS=-lsndfile
 
 clean:
-	rm -rf matrix waveform
+	rm -rf convolution convolution_test matrix osc waveform

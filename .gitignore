@@ -1,5 +1,7 @@
 Makefile.local
 
+convolution
+convolution_test
 matrix
 osc
 waveform
